@@ -8,7 +8,9 @@ import { SHARE_PRICE, VESSEL_TYPES } from "@/lib/constants";
 export default function CreateCollectionPage() {
   const [name, setName] = useState("");
   const [imo, setImo] = useState("");
-  const [vesselType, setVesselType] = useState(VESSEL_TYPES[0]);
+  const [vesselType, setVesselType] = useState<(typeof VESSEL_TYPES)[number]>(
+    VESSEL_TYPES[0]
+  );
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -89,7 +91,7 @@ export default function CreateCollectionPage() {
             <select
               id="vesselType"
               value={vesselType}
-              onChange={(e) => setVesselType(e.target.value as typeof VESSEL_TYPES[number])}
+              onChange={(e) => setVesselType(e.target.value as (typeof VESSEL_TYPES)[number])}
               className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
               {VESSEL_TYPES.map((t) => (
