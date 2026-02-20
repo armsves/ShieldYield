@@ -263,7 +263,7 @@ body {
 ## File Structure (Frontend)
 
 ```
-src/
+frontend/src/
 ├── app/
 │   ├── layout.tsx
 │   ├── page.tsx              # Landing

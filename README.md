@@ -2,6 +2,17 @@
 
 Maritime asset tokenization platform. Cargo ships are represented as NFT collections, divided into $200 fractional shares. Holders receive monthly yield distributions claimable from a dedicated yield contract.
 
+## Repository Structure
+
+```
+ShipYield/
+├── contracts/       # Solidity contracts (Foundry)
+├── script/          # Deploy scripts
+├── test/            # Contract tests
+├── frontend/        # Next.js app
+└── lib/             # forge-std
+```
+
 ## Smart Contracts (Foundry)
 
 Located in `contracts/`:
@@ -42,6 +53,14 @@ forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify
 - **Buy**: `marketplace.buy(collection, tokenId)` — requires `paymentToken.approve(marketplace, 200e6)` first.
 - **Claim**: `yieldVault.claim(collection)` — sends accrued yield to caller.
 
+## Frontend
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
 ## Design
 
 See [DESIGN.md](./DESIGN.md) for the full design specification.
@@ -61,11 +80,3 @@ See [DESIGN.md](./DESIGN.md) for the full design specification.
 - Background: `bg-slate-50`
 - Font: Inter
 
-## Run
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
