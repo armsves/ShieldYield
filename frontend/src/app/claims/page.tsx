@@ -7,6 +7,7 @@ import { useContracts } from "@/hooks/useContracts";
 import { useWallet } from "@/context/WalletContext";
 import { Contract } from "ethers";
 import { ERC721_ABI, ERC20_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { waitForTx } from "@/lib/tx";
 
 const DEFAULT_IMAGE =
   "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=120&h=80&fit=crop";
@@ -63,7 +64,7 @@ export default function ClaimsPage() {
           });
         }
 
-        setClaims(list.filter((c) => parseFloat(c.claimable) > 0));
+        setClaims(list);
       } catch (err) {
         console.error(err);
       } finally {
@@ -78,6 +79,8 @@ export default function ClaimsPage() {
     (s, c) => s + parseFloat(c.claimable),
     0
   );
+  const hasSharesNoYield =
+    claims.length > 0 && claims.every((c) => parseFloat(c.claimable) === 0);
 
   const handleClaim = async (collectionId: number) => {
     const c = claims.find((x) => x.id === collectionId);
@@ -90,7 +93,7 @@ export default function ClaimsPage() {
       if (!signerContracts) throw new Error("Connect wallet");
 
       const tx = await signerContracts.yieldVault.claim(c.nft);
-      await tx.wait();
+      await waitForTx(tx);
 
       setClaims((prev) =>
         prev.map((x) =>
@@ -140,6 +143,11 @@ export default function ClaimsPage() {
             <p className="mt-1 text-3xl font-bold text-primary">
               ${totalClaimable.toFixed(2)}
             </p>
+            {hasSharesNoYield && (
+              <p className="mt-2 text-sm text-slate-500">
+                You hold shares. Yield will appear after the treasury deposits monthly vessel earnings.
+              </p>
+            )}
           </div>
         </div>
       </Card>
@@ -168,6 +176,11 @@ export default function ClaimsPage() {
                   <p className="font-semibold text-primary">
                     ${claim.claimable}
                   </p>
+                  {parseFloat(claim.claimable) === 0 && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      Yield appears when treasury deposits
+                    </p>
+                  )}
                 </div>
                 <Button
                   size="sm"
@@ -183,9 +196,9 @@ export default function ClaimsPage() {
         {error && <p className="text-sm text-red-600">{error}</p>}
         {claims.length === 0 && (
           <Card className="p-12 text-center">
-            <p className="text-slate-600">No claimable yield.</p>
+            <p className="text-slate-600">No vessel shares in your wallet.</p>
             <p className="mt-2 text-sm text-slate-500">
-              Hold vessel shares to receive monthly distributions.
+              Buy shares from the marketplace to receive yield distributions.
             </p>
           </Card>
         )}

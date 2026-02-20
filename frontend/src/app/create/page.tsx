@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SHARE_PRICE, VESSEL_TYPES } from "@/lib/constants";
+import { waitForTx } from "@/lib/tx";
 import { useContracts } from "@/hooks/useContracts";
 import { useWallet } from "@/context/WalletContext";
 import { useRouter } from "next/navigation";
@@ -59,7 +60,7 @@ export default function CreateCollectionPage() {
         baseURI,
         shipPrice
       );
-      await tx.wait();
+      await waitForTx(tx);
 
       const count = await factory.collectionCount();
       const newId = Number(count) - 1;

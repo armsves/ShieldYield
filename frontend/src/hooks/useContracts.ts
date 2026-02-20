@@ -15,6 +15,7 @@ import {
   YIELD_VAULT_ABI,
   ERC721_ABI,
   ERC20_ABI,
+  MOCK_ERC20_ABI,
   RPC_URL,
 } from "@/lib/contracts";
 
@@ -76,6 +77,12 @@ export function useContracts() {
           paymentToken: new Contract(
             CONTRACT_ADDRESSES.paymentToken,
             ERC20_ABI,
+            signer
+          ),
+          /** Mock USDC with mint - for faucet on testnet. Fails if contract has no mint. */
+          mockPaymentToken: new Contract(
+            CONTRACT_ADDRESSES.paymentToken,
+            MOCK_ERC20_ABI,
             signer
           ),
         };

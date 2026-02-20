@@ -32,7 +32,8 @@ contract ShipNFT is ERC721, Ownable {
         _nextTokenId = 1;
 
         for (uint256 i = 0; i < totalShares_; i++) {
-            _safeMint(mintTo_, _nextTokenId);
+            // Use _mint: mintTo_ is the Factory (trusted), which does not implement IERC721Receiver
+            _mint(mintTo_, _nextTokenId);
             _nextTokenId++;
         }
     }

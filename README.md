@@ -48,6 +48,46 @@ PAYMENT_TOKEN=0x...  # Your test token address
 forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify
 ```
 
+### Redeploy Factory Only
+
+After a ShipNFT change (e.g. `_safeMint` → `_mint` fix):
+
+**Step 1** — Deploy new Factory (any account):
+```bash
+# .env: MARKETPLACE_ADDRESS, YIELD_VAULT_ADDRESS
+
+forge script script/DeployFactoryOnly.s.sol:DeployFactoryOnlyScript \
+  --rpc-url $RPC_URL --broadcast \
+  --priority-gas-price 2000000000 --with-gas-price 30000000000
+```
+
+**Step 2** — Vault **owner** sets the new factory (use the key that deployed the vault):
+```bash
+# .env: PRIVATE_KEY = vault owner's key
+export NEW_FACTORY=0x3879441B57eF716578efD5E36130BEFe95740417  # from Step 1
+
+forge script script/SetVaultFactory.s.sol:SetVaultFactoryScript \
+  --rpc-url $RPC_URL --broadcast \
+  --sig "run(address,address)" $YIELD_VAULT_ADDRESS $NEW_FACTORY
+```
+
+Then update `NEXT_PUBLIC_FACTORY` in `frontend/.env`.
+
+### Deposit Yield (Treasury)
+
+Yield appears only after the treasury deposits USDC. The deployer is the initial treasury. To add test yield:
+
+```bash
+# .env: PRIVATE_KEY (treasury wallet), YIELD_VAULT_ADDRESS, FACTORY_ADDRESS, PAYMENT_TOKEN
+export COLLECTION_ID=0          # Which collection (0, 1, 2...)
+export DEPOSIT_AMOUNT=1000000000  # 1000 USDC (6 decimals)
+
+forge script script/DepositYield.s.sol:DepositYieldScript \
+  --rpc-url $RPC_URL --broadcast
+```
+
+The treasury wallet needs USDC balance (e.g. from mock mint at deploy).
+
 ### Integration (MetaMask)
 
 - **Buy**: `marketplace.buy(collection, tokenId)` — requires `paymentToken.approve(marketplace, 200e6)` first.
