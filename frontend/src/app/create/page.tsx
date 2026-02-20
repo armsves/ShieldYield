@@ -4,8 +4,15 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SHARE_PRICE, VESSEL_TYPES } from "@/lib/constants";
+import { useContracts } from "@/hooks/useContracts";
+import { useWallet } from "@/context/WalletContext";
+import { useRouter } from "next/navigation";
+
 
 export default function CreateCollectionPage() {
+  const router = useRouter();
+  const wallet = useWallet();
+  const { factory, getSignerContracts } = useContracts();
   const [name, setName] = useState("");
   const [imo, setImo] = useState("");
   const [vesselType, setVesselType] = useState<(typeof VESSEL_TYPES)[number]>(
@@ -14,6 +21,8 @@ export default function CreateCollectionPage() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const shareCount = useMemo(() => {
     const p = parseFloat(price);
@@ -21,18 +30,45 @@ export default function CreateCollectionPage() {
     return Math.floor(p / SHARE_PRICE);
   }, [price]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Integrate with smart contracts
-    console.log({
-      name,
-      imo,
-      vesselType,
-      price: parseFloat(price),
-      shareCount,
-      description,
-      imageUrl,
-    });
+    if (!wallet?.address) {
+      setError("Connect your wallet first");
+      return;
+    }
+    const shipPrice = Math.floor(parseFloat(price));
+    if (shipPrice < SHARE_PRICE || shareCount === 0) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const signerContracts = await getSignerContracts();
+      if (!signerContracts) throw new Error("Could not get signer");
+
+      const symbol = name
+        .replace(/\s+/g, "")
+        .slice(0, 6)
+        .toUpperCase();
+      // Use placeholder metadata base; imageUrl not stored on-chain
+      const baseURI = "https://shipyield.app/meta/";
+
+      const tx = await signerContracts.factory.createCollection(
+        name,
+        symbol,
+        baseURI,
+        shipPrice
+      );
+      await tx.wait();
+
+      const count = await factory.collectionCount();
+      const newId = Number(count) - 1;
+      router.push(`/ships/${newId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Transaction failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -173,11 +209,21 @@ export default function CreateCollectionPage() {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
           <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={shareCount === 0}>
-              Create Collection
+            <Button
+              type="submit"
+              disabled={shareCount === 0 || isSubmitting || !wallet?.address}
+            >
+              {isSubmitting ? "Creating..." : "Create Collection"}
             </Button>
-            <Button variant="outline" type="button">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => router.back()}
+            >
               Cancel
             </Button>
           </div>

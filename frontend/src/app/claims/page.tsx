@@ -1,27 +1,128 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { useContracts } from "@/hooks/useContracts";
+import { useWallet } from "@/context/WalletContext";
+import { Contract } from "ethers";
+import { ERC721_ABI, ERC20_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
 
-const MOCK_CLAIMS = [
-  {
-    id: "1",
-    name: "MSC Aurora",
-    shares: 3,
-    claimable: 12.5,
-    imageUrl:
-      "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=120&h=80&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Pacific Navigator",
-    shares: 2,
-    claimable: 8.2,
-    imageUrl:
-      "https://images.unsplash.com/photo-1565880324317-9656a22a9d84?w=120&h=80&fit=crop",
-  },
-];
+const DEFAULT_IMAGE =
+  "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=120&h=80&fit=crop";
+
+type Claimable = {
+  id: number;
+  nft: string;
+  name: string;
+  shares: number;
+  claimable: string;
+};
 
 export default function ClaimsPage() {
-  const totalClaimable = MOCK_CLAIMS.reduce((s, c) => s + c.claimable, 0);
+  const wallet = useWallet();
+  const { provider, factory, yieldVault, getSignerContracts } = useContracts();
+  const [claims, setClaims] = useState<Claimable[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchClaims() {
+      if (!wallet?.address) {
+        setClaims([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const count = await factory.collectionCount();
+        const num = Number(count);
+        const list: Claimable[] = [];
+
+        for (let i = 0; i < num; i++) {
+          const [nft, name] = await factory.collections(i);
+          const nftContract = new Contract(nft, ERC721_ABI, provider);
+          const balance = Number(await nftContract.balanceOf(wallet.address));
+          if (balance === 0) continue;
+
+          const pending = await yieldVault.pendingReward(nft, wallet.address);
+          const paymentToken = new Contract(
+            CONTRACT_ADDRESSES.paymentToken,
+            ERC20_ABI,
+            provider
+          );
+          const decimals = Number(await paymentToken.decimals());
+
+          list.push({
+            id: i,
+            nft,
+            name,
+            shares: balance,
+            claimable: (Number(pending) / 10 ** decimals).toFixed(2),
+          });
+        }
+
+        setClaims(list.filter((c) => parseFloat(c.claimable) > 0));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchClaims();
+  }, [wallet?.address, provider, factory, yieldVault]);
+
+  const totalClaimable = claims.reduce(
+    (s, c) => s + parseFloat(c.claimable),
+    0
+  );
+
+  const handleClaim = async (collectionId: number) => {
+    const c = claims.find((x) => x.id === collectionId);
+    if (!c || !wallet?.address) return;
+    setClaimingId(collectionId);
+    setError(null);
+
+    try {
+      const signerContracts = await getSignerContracts();
+      if (!signerContracts) throw new Error("Connect wallet");
+
+      const tx = await signerContracts.yieldVault.claim(c.nft);
+      await tx.wait();
+
+      setClaims((prev) =>
+        prev.map((x) =>
+          x.id === collectionId ? { ...x, claimable: "0.00" } : x
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Claim failed");
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
+  if (!wallet?.address) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-slate-900">Yield Claims</h1>
+        <p className="mt-4 text-slate-600">
+          Connect your wallet to view and claim yield.
+        </p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-slate-900">Yield Claims</h1>
+        <p className="mt-8 text-slate-500">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
@@ -30,9 +131,8 @@ export default function ClaimsPage() {
         Claim your monthly earnings from vessel operations.
       </p>
 
-      {/* Total */}
       <Card className="mt-8 p-6">
-        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">
               Total Claimable
@@ -41,23 +141,17 @@ export default function ClaimsPage() {
               ${totalClaimable.toFixed(2)}
             </p>
           </div>
-          <Button size="lg" disabled={totalClaimable === 0}>
-            Claim All
-          </Button>
         </div>
       </Card>
 
-      {/* Per-Collection Claims */}
       <div className="mt-8 space-y-6">
-        <h2 className="text-lg font-semibold text-slate-900">
-          By Collection
-        </h2>
-        {MOCK_CLAIMS.map((claim) => (
+        <h2 className="text-lg font-semibold text-slate-900">By Collection</h2>
+        {claims.map((claim) => (
           <Card key={claim.id} className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <img
-                  src={claim.imageUrl}
+                  src={DEFAULT_IMAGE}
                   alt={claim.name}
                   className="h-16 w-24 rounded-lg object-cover"
                 />
@@ -68,19 +162,26 @@ export default function ClaimsPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between sm:gap-8">
+              <div className="flex items-center justify-between gap-8">
                 <div className="text-right">
                   <p className="text-sm text-slate-500">Claimable</p>
                   <p className="font-semibold text-primary">
-                    ${claim.claimable.toFixed(2)}
+                    ${claim.claimable}
                   </p>
                 </div>
-                <Button size="sm">Claim</Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleClaim(claim.id)}
+                  disabled={claimingId !== null || parseFloat(claim.claimable) <= 0}
+                >
+                  {claimingId === claim.id ? "Claiming..." : "Claim"}
+                </Button>
               </div>
             </div>
           </Card>
         ))}
-        {MOCK_CLAIMS.length === 0 && (
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {claims.length === 0 && (
           <Card className="p-12 text-center">
             <p className="text-slate-600">No claimable yield.</p>
             <p className="mt-2 text-sm text-slate-500">

@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useWallet, truncateAddress } from "@/context/WalletContext";
 
 export function Navbar() {
+  const wallet = useWallet();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -62,12 +65,32 @@ export function Navbar() {
 
         {/* Wallet - Right */}
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="rounded-lg border-2 border-primary bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0d47b8]"
-          >
-            Connect Wallet
-          </button>
+          {wallet?.address ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-600">
+                {truncateAddress(wallet.address)}
+              </span>
+              <button
+                type="button"
+                onClick={wallet.disconnect}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={wallet?.connect}
+              disabled={wallet?.isConnecting}
+              className="rounded-lg border-2 border-primary bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0d47b8] disabled:opacity-70"
+            >
+              {wallet?.isConnecting ? "Connecting..." : "Connect Wallet"}
+            </button>
+          )}
+          {wallet?.error && (
+            <span className="text-xs text-red-600">{wallet.error}</span>
+          )}
         </div>
       </nav>
     </header>

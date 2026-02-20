@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 export default function LandingPage() {
   return (
@@ -230,12 +231,7 @@ export default function LandingPage() {
             maritime share.
           </p>
           <div className="mt-8">
-            <button
-              type="button"
-              className="rounded-lg border-2 border-white bg-white px-8 py-3 font-medium text-primary transition-colors hover:bg-blue-50"
-            >
-              Connect Wallet
-            </button>
+            <ConnectWalletButton variant="outline-light" />
           </div>
         </div>
       </section>

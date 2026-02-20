@@ -1,99 +1,135 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useContracts } from "@/hooks/useContracts";
+import { useWallet } from "@/context/WalletContext";
+import { Contract } from "ethers";
+import { ERC721_ABI, SHARE_PRICE, CONTRACT_ADDRESSES } from "@/lib/contracts";
 
-const MOCK_SHIP: Record<
-  string,
-  {
+const DEFAULT_IMAGE =
+  "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=800&h=400&fit=crop";
+
+const BATCH_SIZE = 50;
+const MAX_LISTED_FETCH = 500;
+
+export default function ShipDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+  const { provider, factory, marketplace, getSignerContracts } = useContracts();
+  const wallet = useWallet();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [collection, setCollection] = useState<{
+    nft: string;
     name: string;
-    vesselType: string;
-    imo: string;
-    totalShares: number;
-    availableShares: number;
-    pricePerShare: number;
-    description: string;
-    imageUrl: string;
-    lastPayout: string;
-    availableTokenIds: number[];
-  }
-> = {
-  "1": {
-    name: "MSC Aurora",
-    vesselType: "Container Ship",
-    imo: "9234567",
-    totalShares: 5000,
-    availableShares: 12,
-    pricePerShare: 200,
-    description:
-      "A modern container vessel operating on the Asia–Europe route. Built in 2019, certified for sustainable shipping.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=800&h=400&fit=crop",
-    lastPayout: "2026-01-15",
-    availableTokenIds: [101, 205, 312, 418, 523, 601, 702, 815, 901, 1002, 1108, 1215],
-  },
-  "2": {
-    name: "Pacific Navigator",
-    vesselType: "Bulk Carrier",
-    imo: "9345678",
-    totalShares: 3200,
-    availableShares: 8,
-    pricePerShare: 200,
-    description: "Capable bulk carrier for grains and minerals. Deployed in Pacific trades.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1565880324317-9656a22a9d84?w=800&h=400&fit=crop",
-    lastPayout: "2026-01-10",
-    availableTokenIds: [50, 120, 200, 305, 410, 500, 605, 710],
-  },
-  "3": {
-    name: "Atlantic Spirit",
-    vesselType: "Tanker",
-    imo: "9456789",
-    totalShares: 4200,
-    availableShares: 5,
-    pricePerShare: 200,
-    description: "Crude oil tanker with double hull. Operating in Atlantic basin.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800&h=400&fit=crop",
-    lastPayout: "2026-01-12",
-    availableTokenIds: [100, 250, 400, 550, 700],
-  },
-  "4": {
-    name: "Nordic Pioneer",
-    vesselType: "General Cargo",
-    imo: "9567890",
-    totalShares: 1800,
-    availableShares: 15,
-    pricePerShare: 200,
-    description: "Multi-purpose general cargo ship. Serves Baltic and North Sea ports.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1504310574167-3c2d16e3d7d8?w=800&h=400&fit=crop",
-    lastPayout: "2026-01-08",
-    availableTokenIds: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150],
-  },
-  "5": {
-    name: "Indian Ocean Star",
-    vesselType: "Container Ship",
-    imo: "9678901",
-    totalShares: 6000,
-    availableShares: 25,
-    pricePerShare: 200,
-    description: "Large container vessel on Far East–Europe service.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800&h=400&fit=crop",
-    lastPayout: "2026-01-14",
-    availableTokenIds: Array.from({ length: 25 }, (_, i) => i + 1),
-  },
-};
+    shareCount: bigint;
+  } | null>(null);
+  const [listedIds, setListedIds] = useState<number[]>([]);
+  const [buyingId, setBuyingId] = useState<number | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
 
-export default async function ShipDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const ship = MOCK_SHIP[id];
-  if (!ship) notFound();
+  useEffect(() => {
+    async function fetchData() {
+      const numId = parseInt(id, 10);
+      if (isNaN(numId) || numId < 0) {
+        setError("Invalid collection");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const count = await factory.collectionCount();
+        if (numId >= Number(count)) {
+          setError("Collection not found");
+          setLoading(false);
+          return;
+        }
+
+        const [nft, name, shareCount] = await factory.collections(numId);
+        setCollection({ nft, name, shareCount });
+
+        const nftContract = new Contract(nft, ERC721_ABI, provider);
+        const supply = Number(await nftContract.totalSupply());
+        const listed: number[] = [];
+        const toCheck = Math.min(supply, MAX_LISTED_FETCH);
+
+        for (let i = 1; i <= toCheck; i += BATCH_SIZE) {
+          const batch = [];
+          for (let t = i; t < Math.min(i + BATCH_SIZE, toCheck + 1); t++) {
+            batch.push(marketplace.isListed(nft, t));
+          }
+          const results = await Promise.all(batch);
+          results.forEach((ok, idx) => {
+            if (ok) listed.push(i + idx);
+          });
+        }
+        setListedIds(listed);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load collection");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [id, provider, factory, marketplace]);
+
+  const handleBuy = async (tokenId: number) => {
+    if (!wallet?.address || !collection) return;
+    setBuyingId(tokenId);
+    setTxError(null);
+
+    try {
+      const signerContracts = await getSignerContracts();
+      if (!signerContracts) throw new Error("Connect wallet");
+
+      const approveTx = await signerContracts.paymentToken.approve(
+        CONTRACT_ADDRESSES.marketplace,
+        SHARE_PRICE
+      );
+      await approveTx.wait();
+
+      const buyTx = await signerContracts.marketplace.buy(
+        collection.nft,
+        tokenId
+      );
+      await buyTx.wait();
+
+      setListedIds((prev) => prev.filter((id) => id !== tokenId));
+    } catch (err) {
+      setTxError(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <p className="text-slate-600">Loading...</p>
+      </div>
+    );
+  }
+
+  if (error || !collection) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <p className="text-red-600">{error || "Not found"}</p>
+        <Link href="/marketplace" className="mt-4 inline-block text-primary">
+          ← Back to Marketplace
+        </Link>
+      </div>
+    );
+  }
+
+  const totalShares = Number(collection.shareCount);
+  const availableShares = listedIds.length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -104,56 +140,52 @@ export default async function ShipDetailPage({
         ← Back to Marketplace
       </Link>
 
-      {/* Hero */}
       <div className="overflow-hidden rounded-lg bg-white shadow-sm">
         <img
-          src={ship.imageUrl}
-          alt={ship.name}
+          src={DEFAULT_IMAGE}
+          alt={collection.name}
           className="h-64 w-full object-cover sm:h-80"
         />
         <div className="p-6 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">{ship.name}</h1>
-              <p className="mt-1 text-slate-600">{ship.vesselType}</p>
-              {ship.imo && (
-                <p className="mt-1 text-sm text-slate-500">IMO {ship.imo}</p>
-              )}
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold text-slate-900">{collection.name}</h1>
         </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-8">
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Overview</h2>
-            <p className="mt-4 text-slate-600">{ship.description}</p>
-          </Card>
-
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-slate-900">
               Available Shares
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Select an NFT to purchase at ${ship.pricePerShare} per share
+              Select an NFT to purchase at $200 per share. Connect wallet to
+              buy.
             </p>
+            {txError && (
+              <p className="mt-2 text-sm text-red-600">{txError}</p>
+            )}
             <div className="mt-4 flex flex-wrap gap-3">
-              {ship.availableTokenIds.map((tokenId) => (
+              {listedIds.slice(0, 100).map((tokenId) => (
                 <button
                   key={tokenId}
                   type="button"
-                  className="rounded-lg border-2 border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+                  onClick={() => handleBuy(tokenId)}
+                  disabled={!wallet?.address || buyingId !== null}
+                  className="rounded-lg border-2 border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   #{tokenId} — Buy $200
+                  {buyingId === tokenId ? "..." : ""}
                 </button>
               ))}
             </div>
+            {listedIds.length > 100 && (
+              <p className="mt-2 text-sm text-slate-500">
+                + {listedIds.length - 100} more
+              </p>
+            )}
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
           <Card className="p-6">
             <h3 className="font-semibold text-slate-900">Statistics</h3>
@@ -161,24 +193,16 @@ export default async function ShipDetailPage({
               <div>
                 <dt className="text-sm text-slate-500">Total Shares</dt>
                 <dd className="font-medium text-slate-900">
-                  {ship.totalShares.toLocaleString()}
+                  {totalShares.toLocaleString()}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm text-slate-500">Available</dt>
-                <dd className="font-medium text-slate-900">
-                  {ship.availableShares}
-                </dd>
+                <dd className="font-medium text-slate-900">{availableShares}</dd>
               </div>
               <div>
                 <dt className="text-sm text-slate-500">Price per Share</dt>
-                <dd className="font-medium text-slate-900">${ship.pricePerShare}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-500">Total Value</dt>
-                <dd className="font-medium text-slate-900">
-                  ${(ship.totalShares * ship.pricePerShare).toLocaleString()}
-                </dd>
+                <dd className="font-medium text-slate-900">$200</dd>
               </div>
             </dl>
           </Card>
@@ -187,9 +211,6 @@ export default async function ShipDetailPage({
             <h3 className="font-semibold text-slate-900">Yield</h3>
             <p className="mt-2 text-sm text-slate-600">
               Monthly distributions to NFT holders.
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              Last payout: {ship.lastPayout}
             </p>
             <Link href="/claims" className="mt-4 block">
               <Button variant="outline" size="sm" className="w-full">
