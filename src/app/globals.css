@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #1155d4;
+  --bg-main: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border-radius: 0.5rem;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+}
