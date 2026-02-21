@@ -18,7 +18,7 @@ function isReceiptRpcError(err: unknown): boolean {
 }
 
 /**
- * Wait for tx confirmation with retry on 0G testnet RPC receipt errors.
+ * Wait for tx confirmation with retry on ADI testnet RPC receipt errors.
  * When the RPC fails to find a receipt (sync/indexing issue), retries a few times.
  * On final failure, throws with a message including the block explorer link.
  */
@@ -40,7 +40,7 @@ export async function waitForTx(tx: TransactionResponse): Promise<Awaited<Return
       }
       if (isReceiptRpcError(err)) {
         throw new Error(
-          `Transaction was sent but the RPC could not confirm the receipt (0G testnet sync issue). Check status: ${explorerLink}`
+          `Transaction was sent but the RPC could not confirm the receipt (ADI testnet sync issue). Check status: ${explorerLink}`
         );
       }
       throw err;

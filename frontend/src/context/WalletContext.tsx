@@ -45,13 +45,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (accounts && accounts.length > 0) {
         setAddress(accounts[0]);
 
-        // Switch to 0G Testnet (16602) if not already
+        // Switch to ADI Testnet (99999) if not already
         const chainId = (await (ethereum as { request: (args: unknown) => Promise<unknown> }).request({ method: "eth_chainId" })) as string;
-        if (chainId !== "0x40da") {
+        if (chainId !== "0x1869f") {
           try {
             await (ethereum as { request: (args: unknown) => Promise<unknown> }).request({
               method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0x40da" }],
+              params: [{ chainId: "0x1869f" }],
             });
           } catch {
             try {
