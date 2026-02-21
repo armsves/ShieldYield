@@ -59,11 +59,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
                 method: "wallet_addEthereumChain",
                 params: [
                   {
-                    chainId: "0x40da",
-                    chainName: "0G Galileo Testnet",
-                    nativeCurrency: { name: "0G", symbol: "0G", decimals: 18 },
-                    rpcUrls: ["https://evmrpc-testnet.0g.ai"],
-                    blockExplorerUrls: ["https://chainscan-galileo.0g.ai"],
+                    chainId: "0x1869f", // 99999 in hex
+                    chainName: "ADI Testnet",
+                    nativeCurrency: { name: "ADI", symbol: "ADI", decimals: 18 },
+                    rpcUrls: ["https://rpc.ab.testnet.adifoundation.ai"],
+                    blockExplorerUrls: ["https://explorer.ab.testnet.adifoundation.ai/"],
                   },
                 ],
               });

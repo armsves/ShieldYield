@@ -1,21 +1,21 @@
 export const CONTRACT_ADDRESSES = {
   paymentToken:
     process.env.NEXT_PUBLIC_PAYMENT_TOKEN ||
-    "0x76fD47F23f2D765D644B402BA7C8Cdd69312ed9B",
+    "0x3879441B57eF716578efD5E36130BEFe95740417",
   marketplace:
     process.env.NEXT_PUBLIC_MARKETPLACE ||
-    "0x2e03B3AD8D1cD3AdD5a9fc3156DaCAA24635C177",
+    "0x3F445c53Aa22BAF66e8a40c8ADAa6e2C74CC51F9",
   yieldVault:
     process.env.NEXT_PUBLIC_YIELD_VAULT ||
-    "0x56b20638B23A4E372AeAAdE24948561f83e68A9A",
+    "0xa1eB4C5043364B93A89be72921C5fe0dCe470e3D",
   factory:
     process.env.NEXT_PUBLIC_FACTORY ||
-    "0xD9A687Ce7Dc2690972f86848cb6A3f7a5D5f58f6",
+    "0x51B418d6bce016eb1871CfAC11747712edcc30b0",
 } as const;
 
-export const CHAIN_ID = 16602; // 0G Testnet
-export const RPC_URL = "https://evmrpc-testnet.0g.ai";
-export const EXPLORER_URL = "https://chainscan-galileo.0g.ai";
+export const CHAIN_ID = 99999; // ADI Testnet
+export const RPC_URL = "https://rpc.ab.testnet.adifoundation.ai";
+export const EXPLORER_URL = "https://explorer.ab.testnet.adifoundation.ai";
 export const SHARE_PRICE = BigInt(200) * BigInt(10 ** 6); // 200e6 USDC decimals
 
 // Minimal ABIs for the functions we use
